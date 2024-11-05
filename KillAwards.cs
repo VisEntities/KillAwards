@@ -16,7 +16,7 @@ using UnityEngine;
 namespace Oxide.Plugins
 {
     [Info("Kill Awards", "VisEntities", "1.0.0")]
-    [Description(" ")]
+    [Description("Gives players rewards for every set number of kills.")]
     public class KillAwards : RustPlugin
     {
         #region 3rd Party Dependencies
@@ -271,7 +271,7 @@ namespace Oxide.Plugins
                     MessagePlayer(player, Lang.AmmoRefilled);
                 }
 
-                if (!string.IsNullOrEmpty(reward.GearSetToEquip) && EquipGearSet(player, reward.GearSetToEquip))
+                if (!string.IsNullOrEmpty(reward.GearSetToEquip) && EquipGearSet(player, reward.GearSetToEquip, clearInventory: false))
                 {
                     MessagePlayer(player, Lang.GearSetGiven, reward.GearSetToEquip);
                 }
