@@ -15,7 +15,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Kill Awards", "VisEntities", "1.0.0")]
+    [Info("Kill Awards", "VisEntities", "1.0.1")]
     [Description("Gives players rewards for every set number of kills.")]
     public class KillAwards : RustPlugin
     {
@@ -428,7 +428,7 @@ namespace Oxide.Plugins
                 .Replace("{PositionX}", player.transform.position.x.ToString())
                 .Replace("{PositionY}", player.transform.position.y.ToString())
                 .Replace("{PositionZ}", player.transform.position.z.ToString())
-                .Replace("{Grid}", PhoneController.PositionToGridCoord(player.transform.position));
+                .Replace("{Grid}", MapHelper.PositionToString(player.transform.position));
 
             if (type == CommandType.Chat)
             {
