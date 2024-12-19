@@ -8,6 +8,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Oxide.Core;
 using Oxide.Core.Plugins;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -15,14 +16,14 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Kill Awards", "VisEntities", "1.0.1")]
+    [Info("Kill Awards", "VisEntities", "1.1.0")]
     [Description("Gives players rewards for every set number of kills.")]
     public class KillAwards : RustPlugin
     {
         #region 3rd Party Dependencies
 
         [PluginReference]
-        private readonly Plugin GearCore;
+        private readonly Plugin GearCore, Economics, ServerRewards;
 
         #endregion 3rd Party Dependencies
 
@@ -68,6 +69,12 @@ namespace Oxide.Plugins
             [JsonProperty("Gear Set To Equip")]
             public string GearSetToEquip { get; set; }
 
+            [JsonProperty("Points Rewarded")]
+            public int PointsRewarded { get; set; }
+
+            [JsonProperty("Coins Rewarded")]
+            public int CoinsRewarded { get; set; }
+
             [JsonProperty("Commands To Run")]
             public List<CommandConfig> CommandsToRun { get; set; }
         }
@@ -111,6 +118,15 @@ namespace Oxide.Plugins
 
             if (string.Compare(_config.Version, "1.0.0") < 0)
                 _config = defaultConfig;
+
+            if (string.Compare(_config.Version, "1.1.0") < 0)
+            {
+                foreach (var milestone in _config.KillMilestones)
+                {
+                    milestone.Value.CoinsRewarded = 0;
+                    milestone.Value.PointsRewarded = 0;
+                }
+            }
 
             PrintWarning("Config update complete! Updated from version " + _config.Version + " to " + Version.ToString());
             _config.Version = Version.ToString();
@@ -274,6 +290,18 @@ namespace Oxide.Plugins
                 if (!string.IsNullOrEmpty(reward.GearSetToEquip) && EquipGearSet(player, reward.GearSetToEquip, clearInventory: false))
                 {
                     MessagePlayer(player, Lang.GearSetGiven, reward.GearSetToEquip);
+                }
+
+                if (reward.PointsRewarded > 0 && PluginLoaded(ServerRewards))
+                {
+                    ServerRewards.Call("AddPoints", player.userID, reward.PointsRewarded);
+                    MessagePlayer(player, Lang.PointsAwarded, reward.PointsRewarded);
+                }
+
+                if (reward.CoinsRewarded > 0 && PluginLoaded(Economics))
+                {
+                    Economics.Call("Deposit", player.userID, reward.CoinsRewarded);
+                    MessagePlayer(player, Lang.CoinsAwarded, reward.CoinsRewarded);
                 }
 
                 if (reward.CommandsToRun != null)
@@ -453,15 +481,19 @@ namespace Oxide.Plugins
             public const string HealthRestored = "HealthRestored";
             public const string AmmoRefilled = "AmmoRefilled";
             public const string GearSetGiven = "GearSetGiven";
+            public const string PointsAwarded = "PointsAwarded";
+            public const string CoinsAwarded = "CoinsAwarded";
         }
 
         protected override void LoadDefaultMessages()
         {
             lang.RegisterMessages(new Dictionary<string, string>
             {
-                [Lang.HealthRestored] = "You have been healed by <color=#75A838>{0}</color> health points!",
+                [Lang.HealthRestored] = "You have been healed by {0} health points!",
                 [Lang.AmmoRefilled] = "Your ammo has been fully topped up!",
-                [Lang.GearSetGiven] = "You have received the gear set <color=#CACF52>{0}</color>!"
+                [Lang.GearSetGiven] = "You have received the gear set {0}!",
+                [Lang.PointsAwarded] = "You have been awarded {0} points!",
+                [Lang.CoinsAwarded] = "You have been awarded {0} coins!"
 
             }, this, "en");
         }
