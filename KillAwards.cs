@@ -8,7 +8,6 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Oxide.Core;
 using Oxide.Core.Plugins;
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -16,7 +15,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Kill Awards", "VisEntities", "1.1.0")]
+    [Info("Kill Awards", "VisEntities", "1.2.0")]
     [Description("Gives players rewards for every set number of kills.")]
     public class KillAwards : RustPlugin
     {
@@ -69,11 +68,17 @@ namespace Oxide.Plugins
             [JsonProperty("Gear Set To Equip")]
             public string GearSetToEquip { get; set; }
 
-            [JsonProperty("Points Rewarded")]
-            public int PointsRewarded { get; set; }
+            [JsonProperty("Points Deposited")]
+            public int PointsDeposited { get; set; }
 
-            [JsonProperty("Coins Rewarded")]
-            public int CoinsRewarded { get; set; }
+            [JsonProperty("Coins Deposited")]
+            public int CoinsDeposited { get; set; }
+
+            [JsonProperty("Personal Message")]
+            public string PersonalMessage { get; set; }
+
+            [JsonProperty("Global Message")]
+            public string GlobalMessage { get; set; }
 
             [JsonProperty("Commands To Run")]
             public List<CommandConfig> CommandsToRun { get; set; }
@@ -123,8 +128,8 @@ namespace Oxide.Plugins
             {
                 foreach (var milestone in _config.KillMilestones)
                 {
-                    milestone.Value.CoinsRewarded = 0;
-                    milestone.Value.PointsRewarded = 0;
+                    milestone.Value.CoinsDeposited = 0;
+                    milestone.Value.PointsDeposited = 0;
                 }
             }
 
@@ -149,6 +154,8 @@ namespace Oxide.Plugins
                             AmountOfHealthRestored = 10.0f,
                             RefillWeaponAmmo = false,
                             GearSetToEquip = "",
+                            PersonalMessage = "You reached {killCount} kills, nice start!",
+                            GlobalMessage = "{playerName} just hit 1 kill milestone!",
                             CommandsToRun = new List<CommandConfig>()
                         }
                     },
@@ -158,6 +165,8 @@ namespace Oxide.Plugins
                             AmountOfHealthRestored = 15.0f,
                             RefillWeaponAmmo = true,
                             GearSetToEquip = "",
+                            PersonalMessage = "You reached {killCount} kills! Keep it going!",
+                            GlobalMessage = "{playerName} is on a roll with {killCount} kills!",
                             CommandsToRun = new List<CommandConfig>()
                         }
                     },
@@ -167,6 +176,8 @@ namespace Oxide.Plugins
                             AmountOfHealthRestored = 20.0f,
                             RefillWeaponAmmo = true,
                             GearSetToEquip = "",
+                            PersonalMessage = "You reached {killCount} kills and earned 50 scrap!",
+                            GlobalMessage = "Watch out! {playerName} just reached {killCount} kills!",
                             CommandsToRun = new List<CommandConfig>
                             {
                                new CommandConfig
@@ -292,16 +303,16 @@ namespace Oxide.Plugins
                     MessagePlayer(player, Lang.GearSetGiven, reward.GearSetToEquip);
                 }
 
-                if (reward.PointsRewarded > 0 && PluginLoaded(ServerRewards))
+                if (reward.PointsDeposited > 0 && PluginLoaded(ServerRewards))
                 {
-                    ServerRewards.Call("AddPoints", player.userID, reward.PointsRewarded);
-                    MessagePlayer(player, Lang.PointsAwarded, reward.PointsRewarded);
+                    ServerRewards.Call("AddPoints", player.userID, reward.PointsDeposited);
+                    MessagePlayer(player, Lang.PointsAwarded, reward.PointsDeposited);
                 }
 
-                if (reward.CoinsRewarded > 0 && PluginLoaded(Economics))
+                if (reward.CoinsDeposited > 0 && PluginLoaded(Economics))
                 {
-                    Economics.Call("Deposit", player.userID, reward.CoinsRewarded);
-                    MessagePlayer(player, Lang.CoinsAwarded, reward.CoinsRewarded);
+                    Economics.Call("Deposit", player.userID, (double)reward.CoinsDeposited);
+                    MessagePlayer(player, Lang.CoinsAwarded, reward.CoinsDeposited);
                 }
 
                 if (reward.CommandsToRun != null)
@@ -309,6 +320,23 @@ namespace Oxide.Plugins
                     foreach (CommandConfig commandConfig in reward.CommandsToRun)
                     {
                         RunCommand(player, commandConfig.Type, commandConfig.Command);
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(reward.PersonalMessage))
+                {
+                    string personalMsg = ReplaceKillPlaceholders(reward.PersonalMessage, player, playerData.Kills);
+                    MessagePlayer(player, personalMsg);
+                }
+
+                if (!string.IsNullOrEmpty(reward.GlobalMessage))
+                {
+                    string globalMsg = ReplaceKillPlaceholders(reward.GlobalMessage, player, playerData.Kills);
+
+                    foreach (BasePlayer activePlayer in BasePlayer.activePlayerList)
+                    {
+                        if (activePlayer != null)
+                            MessagePlayer(activePlayer, globalMsg);
                     }
                 }
             }
@@ -319,6 +347,13 @@ namespace Oxide.Plugins
         #endregion Awarding
 
         #region Helper Functions
+
+        private string ReplaceKillPlaceholders(string text, BasePlayer player, int killCount)
+        {
+            return text
+                .Replace("{playerName}", player.displayName)
+                .Replace("{killCount}", killCount.ToString());
+        }
 
         public static bool PluginLoaded(Plugin plugin)
         {
